@@ -1,82 +1,89 @@
-import { useState } from 'react'
-import ActiveCard from './components/ActiveCard.jsx'
-import ActionDock from './components/ActionDock.jsx'
+import { AnimatePresence } from 'framer-motion'
+import { useRef, useState } from 'react'
+import EveningScreen from './components/EveningScreen.jsx'
+import FocusSession from './components/FocusSession.jsx'
 import Header from './components/Header.jsx'
-import { useDeck } from './hooks/useDeck.js'
+import InboxScreen from './components/InboxScreen.jsx'
+import NavBar from './components/NavBar.jsx'
+import NowScreen from './components/NowScreen.jsx'
+import Praise from './components/Praise.jsx'
+import { useStore } from './hooks/useStore.js'
 import { useLanguage } from './i18n/LanguageContext.jsx'
-import { breakDownStep, generateSteps } from './services/taskService.js'
-import { celebrate, hapticLight, hapticSuccess } from './utils/feedback.js'
+import { dayKey, streak } from './utils/dates.js'
+import { gentlePulse } from './utils/feedback.js'
 
 export default function App() {
-  const { t, lang } = useLanguage()
-  const deck = useDeck()
-  const [breaking, setBreaking] = useState(false)
+  const { t } = useLanguage()
+  const store = useStore()
+  const [tab, setTab] = useState('now')
+  const [session, setSession] = useState(null)
+  const [praise, setPraise] = useState('')
+  const praiseTimer = useRef(null)
 
-  const addTask = async (text) => {
-    const steps = await generateSteps(text, lang)
-    if (steps.length) {
-      deck.addCards(steps)
-      hapticLight()
-    }
+  const startOfToday = new Date().setHours(0, 0, 0, 0)
+  const doneToday = store.items.filter((i) => i.doneAt >= startOfToday)
+  const eveningDone = Boolean(store.evenings[dayKey()])
+
+  const showPraise = () => {
+    setPraise(t.praise[Math.floor(Math.random() * t.praise.length)])
+    clearTimeout(praiseTimer.current)
+    praiseTimer.current = setTimeout(() => setPraise(''), 2600)
   }
 
-  const onDone = () => {
-    hapticSuccess()
-    celebrate()
-    deck.complete()
+  const finishSession = () => {
+    store.complete(session.item.id)
+    setSession(null)
+    gentlePulse()
+    showPraise()
   }
 
-  const onSkip = () => {
-    hapticLight()
-    deck.skip()
-  }
-
-  const onBreakDown = async () => {
-    if (!deck.current) return
-    setBreaking(true)
-    try {
-      deck.replaceTop(await breakDownStep(deck.current, lang))
-      hapticLight()
-    } finally {
-      setBreaking(false)
-    }
-  }
-
-  const empty = !deck.current
+  const start = (item, minutes) => setSession({ item, minutes })
 
   return (
     <div className="mx-auto flex h-full max-w-md flex-col">
-      <Header xp={deck.xp} remaining={deck.cards.length} onClear={deck.clear} />
+      <Header doneToday={store.doneToday} streakDays={streak(store.doneDays)} />
 
-      <main className="relative flex flex-1 items-center justify-center overflow-hidden px-5">
-        {!empty && deck.cards.length > 1 && (
-          <div className="absolute h-[60%] w-[78%] max-w-xs translate-y-4 rotate-3 rounded-3xl bg-deck-card/50 ring-1 ring-white/5" />
+      <main className="relative min-h-0 flex-1 pt-4">
+        {tab === 'now' && (
+          <NowScreen
+            open={store.open}
+            eveningDone={eveningDone}
+            onStart={start}
+            goInbox={() => setTab('inbox')}
+            goEvening={() => setTab('evening')}
+          />
         )}
-        {empty ? (
-          <div className="max-w-xs text-center">
-            <div className="mb-4 text-6xl">{deck.doneCount ? '🎉' : '🃏'}</div>
-            <h2 className="text-2xl font-bold">{deck.doneCount ? t.allDoneTitle : t.emptyTitle}</h2>
-            <p className="mt-2 text-white/60">{deck.doneCount ? t.allDoneHint : t.emptyHint}</p>
-            <button
-              onClick={() => addTask(t.example)}
-              className="mt-6 rounded-full bg-white/10 px-4 py-2 text-sm font-medium active:scale-95"
-            >
-              ✨ {t.example}
-            </button>
-          </div>
-        ) : (
-          <ActiveCard
-            key={deck.current.id}
-            card={deck.current}
-            onDone={onDone}
-            onSkip={onSkip}
-            onBreakDown={onBreakDown}
-            breaking={breaking}
+        {tab === 'inbox' && (
+          <InboxScreen open={store.open} doneToday={doneToday} onAdd={store.add} onRemove={store.remove} onStart={start} />
+        )}
+        {tab === 'evening' && (
+          <EveningScreen
+            done={eveningDone}
+            eveningCount={streak(store.evenings)}
+            onAdd={store.add}
+            onFinish={() => {
+              store.finishEvening()
+              gentlePulse()
+            }}
           />
         )}
       </main>
 
-      <ActionDock onInput={addTask} />
+      <NavBar tab={tab} onChange={setTab} />
+
+      <AnimatePresence>
+        {session && (
+          <FocusSession
+            key={session.item.id}
+            item={session.item}
+            minutes={session.minutes}
+            onDone={finishSession}
+            onClose={() => setSession(null)}
+          />
+        )}
+      </AnimatePresence>
+
+      <Praise text={praise} />
     </div>
   )
 }

@@ -11,9 +11,9 @@ export default defineConfig({
       manifest: {
         name: 'Dopamine Deck',
         short_name: 'DopDeck',
-        description: 'One micro-step at a time. / Jeden mikro-krok naraz.',
-        theme_color: '#0f0a1f',
-        background_color: '#0f0a1f',
+        description: 'Spokojny pomocnik na ADHD. A calm ADHD companion.',
+        theme_color: '#f4f1ec',
+        background_color: '#f4f1ec',
         display: 'standalone',
         orientation: 'portrait',
         start_url: '/',

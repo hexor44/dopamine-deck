@@ -1,6 +1,6 @@
 # 🃏 Dopamine Deck
 
-Anti-procrastination PWA for ADHD brains. Say or type a task, get micro-steps, swipe through them one card at a time.
+Calm ADHD helper. Empty your mind, let the app pick one thing, focus on it with a gentle timer, close the day in peace.
 
 ```bash
 npm install
